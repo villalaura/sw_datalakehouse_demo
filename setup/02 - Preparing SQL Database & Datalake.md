@@ -16,12 +16,25 @@ A Watermark will be used to ingest table data from SQL Database. This steps is n
 2. Fill the Watermark Table with the command. This will set the watermark for the main tables of the database to 1/1/2000:
 
     ```sql
+    INSERT INTO [dbo].[WatermarkTable]
     SELECT QUOTENAME(table_schema)+'.'+QUOTENAME(table_name) AS TableName, '2000-01-01' FROM 
     information_Schema.tables WHERE table_name not in 
     ('watermarktable','buildversion','errorlog','database_firewall_rules','ipv6_database_firewall_rules',
     'vGetAllCategories','vProductAndDescription','vProductModelCatalogDescription')
     ```
+3. Add the following stored procedure to the AdventureWorks database:
+    ```sql
+    CREATE PROCEDURE [dbo].[uspWriteWatermark] @LastModifiedtime datetime, @TableName varchar(50)
+    AS
+    BEGIN
     
+    UPDATE [dbo].[WatermarkTable]
+    SET WatermarkValue = @LastModifiedtime
+    WHERE TableName = @TableName
+    
+    END;
+    GO
+    ```
 # Preparing the Datalake
 We'll setup the Datalake creating the three containers:
 | Container name | Description
@@ -38,3 +51,20 @@ To accomplish this:
 4. Repeat the step number 2, 3 for the silver and the gold containers
 5. You should have three cointainers:
 ![Preparing dl](https://github.com/villalaura/sw_datalakehouse_demo/raw/main/media/preparing_datalake_2.PNG)
+
+
+## Reset the Watermarks for the Adventure Works DB
+Run this code if you want to reset the data inside Adventure Works DB:
+```sql
+    TABLE [dbo].[WatermarkTable]
+    SELECT QUOTENAME(table_schema)+'.'+QUOTENAME(table_name) AS TableName, '2000-01-01' FROM 
+    information_Schema.tables WHERE table_name not in 
+    ('watermarktable','buildversion','errorlog','database_firewall_rules','ipv6_database_firewall_rules',
+    'vGetAllCategories','vProductAndDescription','vProductModelCatalogDescription')
+    
+    -- DELETE NEW ORDER
+    DELETE FROM [SalesLT].[SalesOrderDetail] where ModifiedDate > '2022-01-01'
+    DELETE FROM [SalesLT].[SalesOrderHeader] where ModifiedDate > '2022-01-01'
+```
+
+
